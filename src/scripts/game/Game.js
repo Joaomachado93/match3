@@ -10,6 +10,25 @@ export class Game extends Scene {
         this.createBackground();
         this.createBoard();
         this.combinationManager = new CombinationManager(this.board);
+        this.removeStartMatches();
+    }
+
+    removeStartMatches() {
+        let matches = this.combinationManager.getMatches();
+
+        while (matches.length) {
+            console.log(matches);
+            this.removeMatches(matches);
+
+            const fields = this.board.fields.filter(field => field.tile === null);
+
+            fields.forEach(field => {
+                this.board.createTile(field);
+            });
+
+            matches = this.combinationManager.getMatches();
+        }
+
     }
 
     createBoard() {
@@ -42,26 +61,43 @@ export class Game extends Scene {
         }
     }
 
-    swap(selectedTile, tile) {
+    swap(selectedTile, tile, reverse) {
         this.disabled = true; // lock the board to prevent tiles movement while the animation is already running
         this.clearSelection(); // hide the "field-selected"
 
         selectedTile.moveTo(tile.field.position, 0.2);
         tile.moveTo(selectedTile.field.position, 0.2).then(() => {
             this.board.swap(selectedTile, tile);
-            const matches = this.combinationManager.getMatches();
-            if (matches.length) {
-                this.processMatches(matches);
+
+
+            if (!reverse) {
+                const matches = this.combinationManager.getMatches();
+                if (matches.length) {
+                    this.processMatches(matches);
+                } else {
+                    this.swap(tile, selectedTile, true);
+                }
+            } else {
+                this.disabled = false;
             }
-            this.disabled = false; // unlock the board
         });
     }
 
     processMatches(matches) {
         this.removeMatches(matches);
-        this.processFallDown().then(() => {
-            this.addTiles();
-        });
+        this.processFallDown()
+            .then(() => this.addTiles())
+            .then(() => this.onFallDownOver());
+    }
+
+    onFallDownOver() {
+        const matches = this.combinationManager.getMatches();
+
+        if (matches.length) {
+            this.processMatches(matches)
+        } else {
+            this.disabled = false; // unlock the board
+        }
     }
 
     addTiles() {
@@ -143,6 +179,7 @@ export class Game extends Scene {
     }
 
     removeMatches(matches) {
+        console.log(matches)
         matches.forEach(match => {
             match.forEach(tile => {
                 tile.remove();
